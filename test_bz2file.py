@@ -175,8 +175,7 @@ class BZ2FileTest(unittest.TestCase):
         self.createTempFile()
         bz2f = BZ2File(self.filename)
         bz2f.close()
-        with self.assertRaises(ValueError):
-            next(bz2f)
+        self.assertRaises(ValueError, next, bz2f)
         # This call will deadlock if the above call failed to release the lock.
         self.assertRaises(ValueError, bz2f.readlines)
 
@@ -429,8 +428,9 @@ class BZ2FileTest(unittest.TestCase):
         else:
             self.fail("1/0 didn't raise an exception")
 
-    @unittest.skipUnless(threading, 'Threading required for this test.')
     def testThreading(self):
+        if not threading:
+            return
         # Issue #7205: Using a BZ2File from several threads shouldn't deadlock.
         data = b"1" * 2**20
         nthreads = 10
@@ -445,6 +445,8 @@ class BZ2FileTest(unittest.TestCase):
                 t.join()
 
     def testWithoutThreading(self):
+        if not hasattr(support, "import_fresh_module"):
+            return
         bz2 = support.import_fresh_module("bz2", blocked=("threading",))
         with BZ2File(self.filename, "wb") as f:
             f.write(b"abc")
@@ -465,8 +467,7 @@ class BZ2FileTest(unittest.TestCase):
             self.assertEqual(bz2f.readline(), self.TEXT_LINES[2])
         with BZ2File(self.filename) as bz2f:
             bz2f.readlines()
-            with self.assertRaises(StopIteration):
-                next(bz2f)
+            self.assertRaises(StopIteration, next, bz2f)
             self.assertEqual(bz2f.readlines(), [])
 
     def testMultiStreamOrdering(self):
