@@ -84,7 +84,7 @@ class BZ2File(io.BufferedIOBase):
             mode_code = _MODE_WRITE
             self._compressor = BZ2Compressor(compresslevel)
         else:
-            raise ValueError("Invalid mode: {!r}".format(mode))
+            raise ValueError("Invalid mode: {0!r}".format(mode))
 
         if filename is not None and fileobj is None:
             self._fp = open(filename, mode)
@@ -371,7 +371,7 @@ class BZ2File(io.BufferedIOBase):
                     self._read_all(return_data=False)
                 offset = self._size + offset
             else:
-                raise ValueError("Invalid value for whence: {}".format(whence))
+                raise ValueError("Invalid value for whence: {0}".format(whence))
 
             # Make it so that offset is the number of bytes to skip forward.
             if offset < self._pos:
