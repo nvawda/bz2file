@@ -14,7 +14,7 @@ Features
 
 - Can read from/write to any file-like object.
 
-- Added methods: ``peek()``, ``read1``, ``readinto()``, ``fileno()``,
+- Added methods: ``peek()``, ``read1()``, ``readinto()``, ``fileno()``,
   ``readable()``, ``writable()``, ``seekable()``.
 
 
