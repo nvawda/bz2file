@@ -1,0 +1,1 @@
+include README.rst test_bz2file.py
