@@ -52,6 +52,23 @@ class BaseTest(unittest.TestCase):
         if os.path.isfile(self.filename):
             os.unlink(self.filename)
 
+    # In some of the tests, we need to verify the contents of multi-stream
+    # files, but bz2.decompress() could not handle this case prior to 3.3.
+    def decompress(self, data):
+        results = []
+        while True:
+            decomp = bz2.BZ2Decompressor()
+            results.append(decomp.decompress(data))
+            try:
+                decomp.decompress(b"")
+            except EOFError:
+                if not decomp.unused_data:
+                    return b"".join(results)
+                data = decomp.unused_data
+            else:
+                raise ValueError("Compressed data ended before the "
+                                 "end-of-stream marker was reached")
+
 
 class BZ2FileTest(BaseTest):
     "Test the BZ2File class."
@@ -196,7 +213,7 @@ class BZ2FileTest(BaseTest):
             self.assertRaises(TypeError, bz2f.write)
             bz2f.write(self.TEXT)
         with open(self.filename, 'rb') as f:
-            self.assertEqual(bz2.decompress(f.read()), self.TEXT)
+            self.assertEqual(self.decompress(f.read()), self.TEXT)
 
     def testWriteChunks10(self):
         with BZ2File(self.filename, "w") as bz2f:
@@ -208,7 +225,7 @@ class BZ2FileTest(BaseTest):
                 bz2f.write(str)
                 n += 1
         with open(self.filename, 'rb') as f:
-            self.assertEqual(bz2.decompress(f.read()), self.TEXT)
+            self.assertEqual(self.decompress(f.read()), self.TEXT)
 
     def testWriteNonDefaultCompressLevel(self):
         expected = bz2.compress(self.TEXT, compresslevel=5)
@@ -225,7 +242,7 @@ class BZ2FileTest(BaseTest):
         # should raise an exception.
         self.assertRaises(ValueError, bz2f.writelines, ["a"])
         with open(self.filename, 'rb') as f:
-            self.assertEqual(bz2.decompress(f.read()), self.TEXT)
+            self.assertEqual(self.decompress(f.read()), self.TEXT)
 
     def testWriteMethodsOnReadOnlyFile(self):
         with BZ2File(self.filename, "w") as bz2f:
@@ -243,13 +260,7 @@ class BZ2FileTest(BaseTest):
             self.assertRaises(TypeError, bz2f.write)
             bz2f.write(self.TEXT)
         with open(self.filename, 'rb') as f:
-            # We can't use bz2.decompress() here, since it doesn't
-            # support multi-stream inputs.
-            dec1 = bz2.BZ2Decompressor()
-            self.assertEqual(dec1.decompress(f.read()), self.TEXT)
-            dec2 = bz2.BZ2Decompressor()
-            self.assertEqual(dec2.decompress(dec1.unused_data), self.TEXT)
-            self.assertFalse(dec2.unused_data)
+            self.assertEqual(self.decompress(f.read()), self.TEXT * 2)
 
     def testSeekForward(self):
         self.createTempFile()
@@ -524,7 +535,7 @@ class BZ2FileTest(BaseTest):
             with BZ2File(bio, "w") as bz2f:
                 self.assertRaises(TypeError, bz2f.write)
                 bz2f.write(self.TEXT)
-            self.assertEqual(bz2.decompress(bio.getvalue()), self.TEXT)
+            self.assertEqual(self.decompress(bio.getvalue()), self.TEXT)
             self.assertFalse(bio.closed)
 
     def testSeekForwardBytesIO(self):
@@ -549,14 +560,14 @@ class OpenTest(BaseTest):
         with bz2file.open(self.filename, "wb") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read())
+            file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT)
         with bz2file.open(self.filename, "rb") as f:
             self.assertEqual(f.read(), self.TEXT)
         with bz2file.open(self.filename, "ab") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read())
+            file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT * 2)
 
     def test_implicit_binary_modes(self):
@@ -564,14 +575,14 @@ class OpenTest(BaseTest):
         with bz2file.open(self.filename, "w") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read())
+            file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT)
         with bz2file.open(self.filename, "r") as f:
             self.assertEqual(f.read(), self.TEXT)
         with bz2file.open(self.filename, "a") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read())
+            file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT * 2)
 
     def test_text_modes(self):
@@ -580,14 +591,14 @@ class OpenTest(BaseTest):
         with bz2file.open(self.filename, "wt") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read()).decode("ascii")
+            file_data = self.decompress(f.read()).decode("ascii")
             self.assertEqual(file_data, text_native_eol)
         with bz2file.open(self.filename, "rt") as f:
             self.assertEqual(f.read(), text)
         with bz2file.open(self.filename, "at") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read()).decode("ascii")
+            file_data = self.decompress(f.read()).decode("ascii")
             self.assertEqual(file_data, text_native_eol * 2)
 
     def test_fileobj(self):
@@ -617,7 +628,7 @@ class OpenTest(BaseTest):
         with bz2file.open(self.filename, "wt", encoding="utf-16-le") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
-            file_data = bz2.decompress(f.read()).decode("utf-16-le")
+            file_data = self.decompress(f.read()).decode("utf-16-le")
             self.assertEqual(file_data, text_native_eol)
         with bz2file.open(self.filename, "rt", encoding="utf-16-le") as f:
             self.assertEqual(f.read(), text)
