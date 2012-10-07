@@ -182,35 +182,37 @@ class BZ2File(io.BufferedIOBase):
 
     # Fill the readahead buffer if it is empty. Returns False on EOF.
     def _fill_buffer(self):
-        if self._buffer:
-            return True
+        # Depending on the input data, our call to the decompressor may not
+        # return any data. In this case, try again after reading another block.
+        while True:
+            if self._buffer:
+                return True
 
-        if self._decompressor.unused_data:
-            rawblock = self._decompressor.unused_data
-            self._decompressor = BZ2Decompressor()
-        else:
-            rawblock = self._fp.read(_BUFFER_SIZE)
-
-        if not rawblock:
-            try:
-                self._decompressor.decompress(b"")
-            except EOFError:
-                # End-of-stream marker and end of file. We're good.
-                self._mode = _MODE_READ_EOF
-                self._size = self._pos
-                return False
+            if self._decompressor.unused_data:
+                rawblock = self._decompressor.unused_data
+                self._decompressor = BZ2Decompressor()
             else:
-                # Problem - we were expecting more compressed data.
-                raise EOFError("Compressed file ended before the "
-                               "end-of-stream marker was reached")
+                rawblock = self._fp.read(_BUFFER_SIZE)
 
-        try:
-            self._buffer = self._decompressor.decompress(rawblock)
-        except EOFError:
-            # Continue to next stream.
-            self._decompressor = BZ2Decompressor()
-            self._buffer = self._decompressor.decompress(rawblock)
-        return True
+            if not rawblock:
+                try:
+                    self._decompressor.decompress(b"")
+                except EOFError:
+                    # End-of-stream marker and end of file. We're good.
+                    self._mode = _MODE_READ_EOF
+                    self._size = self._pos
+                    return False
+                else:
+                    # Problem - we were expecting more compressed data.
+                    raise EOFError("Compressed file ended before the "
+                                   "end-of-stream marker was reached")
+
+            try:
+                self._buffer = self._decompressor.decompress(rawblock)
+            except EOFError:
+                # Continue to next stream.
+                self._decompressor = BZ2Decompressor()
+                self._buffer = self._decompressor.decompress(rawblock)
 
     # Read data until EOF.
     # If return_data is false, consume the data without returning it.
@@ -272,11 +274,14 @@ class BZ2File(io.BufferedIOBase):
                 return self._read_block(size)
 
     def read1(self, size=-1):
-        """Read up to size uncompressed bytes with at most one read
-        from the underlying stream.
+        """Read up to size uncompressed bytes, while trying to avoid
+        making multiple reads from the underlying stream.
 
         Returns b'' if the file is at EOF.
         """
+        # Usually, read1() calls _fp.read() at most once. However, sometimes
+        # this does not give enough data for the decompressor to make progress.
+        # In this case we make multiple reads, to avoid returning b"".
         with self._lock:
             self._check_can_read()
             if (size == 0 or self._mode == _MODE_READ_EOF or
