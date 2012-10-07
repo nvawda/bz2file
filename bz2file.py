@@ -26,6 +26,8 @@ _MODE_WRITE    = 3
 
 _BUFFER_SIZE = 8192
 
+_STR_TYPES = (str, unicode) if (str is bytes) else (str, bytes)
+
 
 class BZ2File(io.BufferedIOBase):
 
@@ -38,13 +40,12 @@ class BZ2File(io.BufferedIOBase):
     returned as bytes, and data to be written should be given as bytes.
     """
 
-    def __init__(self, filename=None, mode="r", buffering=None,
-                 compresslevel=9, fileobj=None):
+    def __init__(self, filename, mode="r", buffering=None, compresslevel=9):
         """Open a bzip2-compressed file.
 
-        If filename is given, open the named file. Otherwise, operate on
-        the file object given by fileobj. Exactly one of these two
-        parameters should be provided.
+        If filename is a str, bytes or unicode object, it gives the name
+        of the file to be opened. Otherwise, it should be a file object,
+        which will be used to read or write the compressed data.
 
         mode can be 'r' for reading (default), 'w' for (over)writing, or
         'a' for appending.
@@ -90,15 +91,16 @@ class BZ2File(io.BufferedIOBase):
         else:
             raise ValueError("Invalid mode: {0!r}".format(mode))
 
-        if filename is not None and fileobj is None:
+        if isinstance(filename, _STR_TYPES):
             self._fp = open(filename, mode)
             self._closefp = True
             self._mode = mode_code
-        elif fileobj is not None and filename is None:
-            self._fp = fileobj
+        elif hasattr(filename, "read") or hasattr(filename, "write"):
+            self._fp = filename
             self._mode = mode_code
         else:
-            raise ValueError("Must give exactly one of filename and fileobj")
+            raise TypeError("filename must be a %s or %s object, or a file" %
+                            (_STR_TYPES[0].__name__, _STR_TYPES[1].__name__))
 
     def close(self):
         """Flush and close the file.
