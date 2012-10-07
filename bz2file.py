@@ -81,7 +81,8 @@ class BZ2File(io.BufferedIOBase):
             mode = "rb"
             mode_code = _MODE_READ
             self._decompressor = BZ2Decompressor()
-            self._buffer = None
+            self._buffer = b""
+            self._buffer_offset = 0
         elif mode in ("w", "wb"):
             mode = "wb"
             mode_code = _MODE_WRITE
@@ -127,7 +128,8 @@ class BZ2File(io.BufferedIOBase):
                     self._fp = None
                     self._closefp = False
                     self._mode = _MODE_CLOSED
-                    self._buffer = None
+                    self._buffer = b""
+                    self._buffer_offset = 0
 
     @property
     def closed(self):
@@ -182,17 +184,13 @@ class BZ2File(io.BufferedIOBase):
 
     # Fill the readahead buffer if it is empty. Returns False on EOF.
     def _fill_buffer(self):
+        if self._mode == _MODE_READ_EOF:
+            return False
         # Depending on the input data, our call to the decompressor may not
         # return any data. In this case, try again after reading another block.
-        while True:
-            if self._buffer:
-                return True
-
-            if self._decompressor.unused_data:
-                rawblock = self._decompressor.unused_data
-                self._decompressor = BZ2Decompressor()
-            else:
-                rawblock = self._fp.read(_BUFFER_SIZE)
+        while self._buffer_offset == len(self._buffer):
+            rawblock = (self._decompressor.unused_data or
+                        self._fp.read(_BUFFER_SIZE))
 
             if not rawblock:
                 try:
@@ -213,30 +211,48 @@ class BZ2File(io.BufferedIOBase):
                 # Continue to next stream.
                 self._decompressor = BZ2Decompressor()
                 self._buffer = self._decompressor.decompress(rawblock)
+            self._buffer_offset = 0
+        return True
 
     # Read data until EOF.
     # If return_data is false, consume the data without returning it.
     def _read_all(self, return_data=True):
+        # The loop assumes that _buffer_offset is 0. Ensure that this is true.
+        self._buffer = self._buffer[self._buffer_offset:]
+        self._buffer_offset = 0
+
         blocks = []
         while self._fill_buffer():
             if return_data:
                 blocks.append(self._buffer)
             self._pos += len(self._buffer)
-            self._buffer = None
+            self._buffer = b""
         if return_data:
             return b"".join(blocks)
 
     # Read a block of up to n bytes.
     # If return_data is false, consume the data without returning it.
     def _read_block(self, n, return_data=True):
+        # If we have enough data buffered, return immediately.
+        end = self._buffer_offset + n
+        if end <= len(self._buffer):
+            data = self._buffer[self._buffer_offset : end]
+            self._buffer_offset = end
+            self._pos += len(data)
+            return data if return_data else None
+
+        # The loop assumes that _buffer_offset is 0. Ensure that this is true.
+        self._buffer = self._buffer[self._buffer_offset:]
+        self._buffer_offset = 0
+
         blocks = []
         while n > 0 and self._fill_buffer():
             if n < len(self._buffer):
                 data = self._buffer[:n]
-                self._buffer = self._buffer[n:]
+                self._buffer_offset = n
             else:
                 data = self._buffer
-                self._buffer = None
+                self._buffer = b""
             if return_data:
                 blocks.append(data)
             self._pos += len(data)
@@ -252,9 +268,9 @@ class BZ2File(io.BufferedIOBase):
         """
         with self._lock:
             self._check_can_read()
-            if self._mode == _MODE_READ_EOF or not self._fill_buffer():
+            if not self._fill_buffer():
                 return b""
-            return self._buffer
+            return self._buffer[self._buffer_offset:]
 
     def read(self, size=-1):
         """Read up to size uncompressed bytes from the file.
@@ -266,7 +282,7 @@ class BZ2File(io.BufferedIOBase):
             raise TypeError()
         with self._lock:
             self._check_can_read()
-            if self._mode == _MODE_READ_EOF or size == 0:
+            if size == 0:
                 return b""
             elif size < 0:
                 return self._read_all()
@@ -284,15 +300,19 @@ class BZ2File(io.BufferedIOBase):
         # In this case we make multiple reads, to avoid returning b"".
         with self._lock:
             self._check_can_read()
-            if (size == 0 or self._mode == _MODE_READ_EOF or
-                not self._fill_buffer()):
+            if (size == 0 or
+                # Only call _fill_buffer() if the buffer is actually empty.
+                # This gives a significant speedup if *size* is small.
+                (self._buffer_offset == len(self._buffer) and not self._fill_buffer())):
                 return b""
-            if 0 < size < len(self._buffer):
-                data = self._buffer[:size]
-                self._buffer = self._buffer[size:]
+            if size > 0:
+                data = self._buffer[self._buffer_offset :
+                                    self._buffer_offset + size]
+                self._buffer_offset += len(data)
             else:
-                data = self._buffer
-                self._buffer = None
+                data = self._buffer[self._buffer_offset:]
+                self._buffer = b""
+                self._buffer_offset = 0
             self._pos += len(data)
             return data
 
@@ -315,6 +335,15 @@ class BZ2File(io.BufferedIOBase):
             raise TypeError("Integer argument expected")
         size = size.__index__()
         with self._lock:
+            self._check_can_read()
+            # Shortcut for the common case - the whole line is in the buffer.
+            if size < 0:
+                end = self._buffer.find(b"\n", self._buffer_offset) + 1
+                if end > 0:
+                    line = self._buffer[self._buffer_offset : end]
+                    self._buffer_offset = end
+                    self._pos += len(line)
+                    return line
             return io.BufferedIOBase.readline(self, size)
 
     def readlines(self, size=-1):
@@ -361,7 +390,8 @@ class BZ2File(io.BufferedIOBase):
         self._mode = _MODE_READ
         self._pos = 0
         self._decompressor = BZ2Decompressor()
-        self._buffer = None
+        self._buffer = b""
+        self._buffer_offset = 0
 
     def seek(self, offset, whence=0):
         """Change the file position.
@@ -401,8 +431,7 @@ class BZ2File(io.BufferedIOBase):
                 offset -= self._pos
 
             # Read and discard data until we reach the desired position.
-            if self._mode != _MODE_READ_EOF:
-                self._read_block(offset, return_data=False)
+            self._read_block(offset, return_data=False)
 
             return self._pos
 
