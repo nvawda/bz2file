@@ -16,8 +16,8 @@ except ImportError:
     from test import test_support as support
 
 
-class BZ2FileTest(unittest.TestCase):
-    "Test BZ2File class."
+class BaseTest(unittest.TestCase):
+    "Base for other testcases."
 
     TEXT_LINES = [
         b'root:x:0:0:root:/root:/bin/bash\n',
@@ -51,6 +51,10 @@ class BZ2FileTest(unittest.TestCase):
     def tearDown(self):
         if os.path.isfile(self.filename):
             os.unlink(self.filename)
+
+
+class BZ2FileTest(BaseTest):
+    "Test the BZ2File class."
 
     def createTempFile(self, streams=1):
         with open(self.filename, "wb") as f:
@@ -536,6 +540,103 @@ class BZ2FileTest(unittest.TestCase):
                 bz2f.read(500)
                 bz2f.seek(-150, 1)
                 self.assertEqual(bz2f.read(), self.TEXT[500-150:])
+
+
+class OpenTest(BaseTest):
+    "Test the open function."
+
+    def test_binary_modes(self):
+        with bz2file.open(self.filename, "wb") as f:
+            f.write(self.TEXT)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read())
+            self.assertEqual(file_data, self.TEXT)
+        with bz2file.open(self.filename, "rb") as f:
+            self.assertEqual(f.read(), self.TEXT)
+        with bz2file.open(self.filename, "ab") as f:
+            f.write(self.TEXT)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read())
+            self.assertEqual(file_data, self.TEXT * 2)
+
+    def test_implicit_binary_modes(self):
+        # Test implicit binary modes (no "b" or "t" in mode string).
+        with bz2file.open(self.filename, "w") as f:
+            f.write(self.TEXT)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read())
+            self.assertEqual(file_data, self.TEXT)
+        with bz2file.open(self.filename, "r") as f:
+            self.assertEqual(f.read(), self.TEXT)
+        with bz2file.open(self.filename, "a") as f:
+            f.write(self.TEXT)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read())
+            self.assertEqual(file_data, self.TEXT * 2)
+
+    def test_text_modes(self):
+        text = self.TEXT.decode("ascii")
+        text_native_eol = text.replace("\n", os.linesep)
+        with bz2file.open(self.filename, "wt") as f:
+            f.write(text)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read()).decode("ascii")
+            self.assertEqual(file_data, text_native_eol)
+        with bz2file.open(self.filename, "rt") as f:
+            self.assertEqual(f.read(), text)
+        with bz2file.open(self.filename, "at") as f:
+            f.write(text)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read()).decode("ascii")
+            self.assertEqual(file_data, text_native_eol * 2)
+
+    def test_fileobj(self):
+        with bz2file.open(BytesIO(self.DATA), "r") as f:
+            self.assertEqual(f.read(), self.TEXT)
+        with bz2file.open(BytesIO(self.DATA), "rb") as f:
+            self.assertEqual(f.read(), self.TEXT)
+        text = self.TEXT.decode("ascii")
+        with bz2file.open(BytesIO(self.DATA), "rt") as f:
+            self.assertEqual(f.read(), text)
+
+    def test_bad_params(self):
+        # Test invalid parameter combinations.
+        self.assertRaises(ValueError,
+                          bz2file.open, self.filename, "wbt")
+        self.assertRaises(ValueError,
+                          bz2file.open, self.filename, "rb", encoding="utf-8")
+        self.assertRaises(ValueError,
+                          bz2file.open, self.filename, "rb", errors="ignore")
+        self.assertRaises(ValueError,
+                          bz2file.open, self.filename, "rb", newline="\n")
+
+    def test_encoding(self):
+        # Test non-default encoding.
+        text = self.TEXT.decode("ascii")
+        text_native_eol = text.replace("\n", os.linesep)
+        with bz2file.open(self.filename, "wt", encoding="utf-16-le") as f:
+            f.write(text)
+        with open(self.filename, "rb") as f:
+            file_data = bz2.decompress(f.read()).decode("utf-16-le")
+            self.assertEqual(file_data, text_native_eol)
+        with bz2file.open(self.filename, "rt", encoding="utf-16-le") as f:
+            self.assertEqual(f.read(), text)
+
+    def test_encoding_error_handler(self):
+        # Test with non-default encoding error handler.
+        with bz2file.open(self.filename, "wb") as f:
+            f.write(b"foo\xffbar")
+        with bz2file.open(self.filename, "rt", encoding="ascii", errors="ignore") \
+                as f:
+            self.assertEqual(f.read(), "foobar")
+
+    def test_newline(self):
+        # Test with explicit newline (universal newline mode disabled).
+        text = self.TEXT.decode("ascii")
+        with bz2file.open(self.filename, "wt", newline="\n") as f:
+            f.write(text)
+        with bz2file.open(self.filename, "rt", newline="\r") as f:
+            self.assertEqual(f.readlines(), [text])
 
 
 if __name__ == '__main__':

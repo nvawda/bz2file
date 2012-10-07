@@ -4,7 +4,7 @@ This module contains a backport of Python 3.3's BZ2File class,
 adapted to work with earlier versions of Python.
 """
 
-__all__ = ["BZ2File"]
+__all__ = ["BZ2File", "open"]
 
 __author__ = "Nadeem Vawda <nadeem.vawda@gmail.com>"
 
@@ -27,6 +27,8 @@ _MODE_WRITE    = 3
 _BUFFER_SIZE = 8192
 
 _STR_TYPES = (str, unicode) if (str is bytes) else (str, bytes)
+
+_builtin_open = open
 
 
 class BZ2File(io.BufferedIOBase):
@@ -92,7 +94,7 @@ class BZ2File(io.BufferedIOBase):
             raise ValueError("Invalid mode: {0!r}".format(mode))
 
         if isinstance(filename, _STR_TYPES):
-            self._fp = open(filename, mode)
+            self._fp = _builtin_open(filename, mode)
             self._closefp = True
             self._mode = mode_code
         elif hasattr(filename, "read") or hasattr(filename, "write"):
@@ -404,3 +406,43 @@ class BZ2File(io.BufferedIOBase):
         with self._lock:
             self._check_not_closed()
             return self._pos
+
+
+def open(filename, mode="rb", compresslevel=9,
+         encoding=None, errors=None, newline=None):
+    """Open a bzip2-compressed file in binary or text mode.
+
+    The filename argument can be an actual filename (a str, bytes or unicode
+    object), or an existing file object to read from or write to.
+
+    The mode argument can be "r", "rb", "w", "wb", "a" or "ab" for binary mode,
+    or "rt", "wt" or "at" for text mode. The default mode is "rb", and the
+    default compresslevel is 9.
+
+    For binary mode, this function is equivalent to the BZ2File constructor:
+    BZ2File(filename, mode, compresslevel). In this case, the encoding, errors
+    and newline arguments must not be provided.
+
+    For text mode, a BZ2File object is created, and wrapped in an
+    io.TextIOWrapper instance with the specified encoding, error handling
+    behavior, and line ending(s).
+
+    """
+    if "t" in mode:
+        if "b" in mode:
+            raise ValueError("Invalid mode: %r" % (mode,))
+    else:
+        if encoding is not None:
+            raise ValueError("Argument 'encoding' not supported in binary mode")
+        if errors is not None:
+            raise ValueError("Argument 'errors' not supported in binary mode")
+        if newline is not None:
+            raise ValueError("Argument 'newline' not supported in binary mode")
+
+    bz_mode = mode.replace("t", "")
+    binary_file = BZ2File(filename, bz_mode, compresslevel=compresslevel)
+
+    if "t" in mode:
+        return io.TextIOWrapper(binary_file, encoding, errors, newline)
+    else:
+        return binary_file
