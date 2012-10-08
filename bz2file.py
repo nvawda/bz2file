@@ -92,7 +92,7 @@ class BZ2File(io.BufferedIOBase):
             mode_code = _MODE_WRITE
             self._compressor = BZ2Compressor(compresslevel)
         else:
-            raise ValueError("Invalid mode: {0!r}".format(mode))
+            raise ValueError("Invalid mode: %r" % (mode,))
 
         if isinstance(filename, _STR_TYPES):
             self._fp = _builtin_open(filename, mode)
@@ -143,12 +143,9 @@ class BZ2File(io.BufferedIOBase):
 
     def seekable(self):
         """Return whether the file supports seeking."""
-        if not self.readable():
-            return False
-        if hasattr(self._fp, "seekable"):
-            return self._fp.seekable()
-        else:
-            return hasattr(self._fp, "seek")
+        return self.readable() and (self._fp.seekable()
+                                    if hasattr(self._fp, "seekable")
+                                    else hasattr(self._fp, "seek"))
 
     def readable(self):
         """Return whether the file was opened for reading."""
@@ -427,7 +424,7 @@ class BZ2File(io.BufferedIOBase):
                     self._read_all(return_data=False)
                 offset = self._size + offset
             else:
-                raise ValueError("Invalid value for whence: {0}".format(whence))
+                raise ValueError("Invalid value for whence: %s" % (whence,))
 
             # Make it so that offset is the number of bytes to skip forward.
             if offset < self._pos:

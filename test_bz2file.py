@@ -479,10 +479,10 @@ class BZ2FileTest(BaseTest):
     def testWithoutThreading(self):
         if not hasattr(support, "import_fresh_module"):
             return
-        bz2 = support.import_fresh_module("bz2", blocked=("threading",))
-        with BZ2File(self.filename, "wb") as f:
+        module = support.import_fresh_module("bz2file", blocked=("threading",))
+        with module.BZ2File(self.filename, "wb") as f:
             f.write(b"abc")
-        with BZ2File(self.filename, "rb") as f:
+        with module.BZ2File(self.filename, "rb") as f:
             self.assertEqual(f.read(), b"abc")
 
     def testMixedIterationAndReads(self):
@@ -571,15 +571,18 @@ class BZ2FileTest(BaseTest):
 class OpenTest(BaseTest):
     "Test the open function."
 
+    def open(self, *args, **kwargs):
+        return bz2file.open(*args, **kwargs)
+
     def test_binary_modes(self):
-        with bz2file.open(self.filename, "wb") as f:
+        with self.open(self.filename, "wb") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT)
-        with bz2file.open(self.filename, "rb") as f:
+        with self.open(self.filename, "rb") as f:
             self.assertEqual(f.read(), self.TEXT)
-        with bz2file.open(self.filename, "ab") as f:
+        with self.open(self.filename, "ab") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read())
@@ -587,14 +590,14 @@ class OpenTest(BaseTest):
 
     def test_implicit_binary_modes(self):
         # Test implicit binary modes (no "b" or "t" in mode string).
-        with bz2file.open(self.filename, "w") as f:
+        with self.open(self.filename, "w") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read())
             self.assertEqual(file_data, self.TEXT)
-        with bz2file.open(self.filename, "r") as f:
+        with self.open(self.filename, "r") as f:
             self.assertEqual(f.read(), self.TEXT)
-        with bz2file.open(self.filename, "a") as f:
+        with self.open(self.filename, "a") as f:
             f.write(self.TEXT)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read())
@@ -603,65 +606,65 @@ class OpenTest(BaseTest):
     def test_text_modes(self):
         text = self.TEXT.decode("ascii")
         text_native_eol = text.replace("\n", os.linesep)
-        with bz2file.open(self.filename, "wt") as f:
+        with self.open(self.filename, "wt") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read()).decode("ascii")
             self.assertEqual(file_data, text_native_eol)
-        with bz2file.open(self.filename, "rt") as f:
+        with self.open(self.filename, "rt") as f:
             self.assertEqual(f.read(), text)
-        with bz2file.open(self.filename, "at") as f:
+        with self.open(self.filename, "at") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read()).decode("ascii")
             self.assertEqual(file_data, text_native_eol * 2)
 
     def test_fileobj(self):
-        with bz2file.open(BytesIO(self.DATA), "r") as f:
+        with self.open(BytesIO(self.DATA), "r") as f:
             self.assertEqual(f.read(), self.TEXT)
-        with bz2file.open(BytesIO(self.DATA), "rb") as f:
+        with self.open(BytesIO(self.DATA), "rb") as f:
             self.assertEqual(f.read(), self.TEXT)
         text = self.TEXT.decode("ascii")
-        with bz2file.open(BytesIO(self.DATA), "rt") as f:
+        with self.open(BytesIO(self.DATA), "rt") as f:
             self.assertEqual(f.read(), text)
 
     def test_bad_params(self):
         # Test invalid parameter combinations.
         self.assertRaises(ValueError,
-                          bz2file.open, self.filename, "wbt")
+                          self.open, self.filename, "wbt")
         self.assertRaises(ValueError,
-                          bz2file.open, self.filename, "rb", encoding="utf-8")
+                          self.open, self.filename, "rb", encoding="utf-8")
         self.assertRaises(ValueError,
-                          bz2file.open, self.filename, "rb", errors="ignore")
+                          self.open, self.filename, "rb", errors="ignore")
         self.assertRaises(ValueError,
-                          bz2file.open, self.filename, "rb", newline="\n")
+                          self.open, self.filename, "rb", newline="\n")
 
     def test_encoding(self):
         # Test non-default encoding.
         text = self.TEXT.decode("ascii")
         text_native_eol = text.replace("\n", os.linesep)
-        with bz2file.open(self.filename, "wt", encoding="utf-16-le") as f:
+        with self.open(self.filename, "wt", encoding="utf-16-le") as f:
             f.write(text)
         with open(self.filename, "rb") as f:
             file_data = self.decompress(f.read()).decode("utf-16-le")
             self.assertEqual(file_data, text_native_eol)
-        with bz2file.open(self.filename, "rt", encoding="utf-16-le") as f:
+        with self.open(self.filename, "rt", encoding="utf-16-le") as f:
             self.assertEqual(f.read(), text)
 
     def test_encoding_error_handler(self):
         # Test with non-default encoding error handler.
-        with bz2file.open(self.filename, "wb") as f:
+        with self.open(self.filename, "wb") as f:
             f.write(b"foo\xffbar")
-        with bz2file.open(self.filename, "rt", encoding="ascii", errors="ignore") \
+        with self.open(self.filename, "rt", encoding="ascii", errors="ignore") \
                 as f:
             self.assertEqual(f.read(), "foobar")
 
     def test_newline(self):
         # Test with explicit newline (universal newline mode disabled).
         text = self.TEXT.decode("ascii")
-        with bz2file.open(self.filename, "wt", newline="\n") as f:
+        with self.open(self.filename, "wt", newline="\n") as f:
             f.write(text)
-        with bz2file.open(self.filename, "rt", newline="\r") as f:
+        with self.open(self.filename, "rt", newline="\r") as f:
             self.assertEqual(f.readlines(), [text])
 
 
