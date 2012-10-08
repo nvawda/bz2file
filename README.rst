@@ -1,10 +1,10 @@
 Bz2file is a Python library for reading and writing bzip2-compressed files.
 
-It contains a drop-in replacement for the standard library's ``bz2.BZ2File``
-class, including features from the latest development version of CPython that
-are not available in older releases.
+It contains a drop-in replacement for the file interface in the standard
+library's ``bz2`` module, including features from the latest development
+version of CPython that are not available in older releases.
 
-Bz2file is compatible with Python 2.6, 2.7, and 3.0 through 3.3.
+Bz2file is compatible with Python 2.6, 2.7, and 3.0 through 3.4.
 
 
 Features
@@ -12,7 +12,9 @@ Features
 
 - Supports multi-stream files.
 
-- Can read from/write to any file-like object.
+- Can read from or write to any file-like object.
+
+- Can open files in either text or binary mode.
 
 - Added methods: ``peek()``, ``read1()``, ``readinto()``, ``fileno()``,
   ``readable()``, ``writable()``, ``seekable()``.
@@ -29,6 +31,22 @@ To install bz2file, run: ::
 Documentation
 -------------
 
-The ``BZ2File`` class in this module provides the same features and interface as
-the ``bz2.BZ2File`` class in the current development version of CPython,
-`documented here <http://docs.python.org/dev/library/bz2.html#bz2.BZ2File>`_.
+The ``open()`` function and ``BZ2File`` class in this module provide the same
+features and interface as the ones in the standard library's ``bz2`` module in
+the current development version of CPython, `documented here
+<http://docs.python.org/dev/library/bz2.html#bz2.BZ2File>`_.
+
+
+Version History
+---------------
+
+0.95: 08 October 2012
+
+- Added the ``open()`` function.
+- Improved performance when reading in small chunks.
+- Removed the ``fileobj`` argument to ``BZ2File()``. To wrap an existing file
+  object, pass it as the first argument (``filename``).
+
+0.9: 04 February 2012
+
+- Initial release.

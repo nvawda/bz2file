@@ -5,7 +5,7 @@ with open("README.rst") as f:
 
 setup(
     name="bz2file",
-    version="0.9",
+    version="0.95",
     description="Read and write bzip2-compressed files.",
     long_description=readme,
     author="Nadeem Vawda",
@@ -27,6 +27,7 @@ setup(
         "Programming Language :: Python :: 3.1",
         "Programming Language :: Python :: 3.2",
         "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: System :: Archiving :: Compression",
     ],
