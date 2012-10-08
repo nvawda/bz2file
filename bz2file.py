@@ -1,7 +1,7 @@
 """Module for reading and writing bzip2-compressed files.
 
-This module contains a backport of Python 3.3's BZ2File class,
-adapted to work with earlier versions of Python.
+This module contains a backport of Python 3.4's bz2.open() function and
+BZ2File class, adapted to work with earlier versions of Python.
 """
 
 __all__ = ["BZ2File", "open"]
@@ -49,8 +49,9 @@ class BZ2File(io.BufferedIOBase):
         of the file to be opened. Otherwise, it should be a file object,
         which will be used to read or write the compressed data.
 
-        mode can be 'r' for reading (default), 'w' for (over)writing, or 'a' for
-        appending. These can equivalently be given as 'rb', 'wb', and 'ab'.
+        mode can be 'r' for reading (default), 'w' for (over)writing,
+        or 'a' for appending. These can equivalently be given as 'rb',
+        'wb', and 'ab'.
 
         buffering is ignored. Its use is deprecated.
 
@@ -451,17 +452,17 @@ def open(filename, mode="rb", compresslevel=9,
     The filename argument can be an actual filename (a str, bytes or unicode
     object), or an existing file object to read from or write to.
 
-    The mode argument can be "r", "rb", "w", "wb", "a" or "ab" for binary mode,
-    or "rt", "wt" or "at" for text mode. The default mode is "rb", and the
-    default compresslevel is 9.
+    The mode argument can be "r", "rb", "w", "wb", "a" or "ab" for
+    binary mode, or "rt", "wt" or "at" for text mode. The default mode
+    is "rb", and the default compresslevel is 9.
 
-    For binary mode, this function is equivalent to the BZ2File constructor:
-    BZ2File(filename, mode, compresslevel). In this case, the encoding, errors
-    and newline arguments must not be provided.
+    For binary mode, this function is equivalent to the BZ2File
+    constructor: BZ2File(filename, mode, compresslevel). In this case,
+    the encoding, errors and newline arguments must not be provided.
 
     For text mode, a BZ2File object is created, and wrapped in an
-    io.TextIOWrapper instance with the specified encoding, error handling
-    behavior, and line ending(s).
+    io.TextIOWrapper instance with the specified encoding, error
+    handling behavior, and line ending(s).
 
     """
     if "t" in mode:
