@@ -34,7 +34,7 @@ Documentation
 The ``open()`` function and ``BZ2File`` class in this module provide the same
 features and interface as the ones in the standard library's ``bz2`` module in
 the current development version of CPython, `documented here
-<http://docs.python.org/dev/library/bz2.html#bz2.BZ2File>`_.
+<http://docs.python.org/dev/library/bz2.html>`_.
 
 
 Version History
