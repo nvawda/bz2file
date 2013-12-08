@@ -4,6 +4,7 @@ import bz2file
 from bz2file import BZ2File
 from io import BytesIO
 import os
+import platform
 
 try:
     import threading
@@ -419,6 +420,8 @@ class BZ2FileTest(BaseTest):
         self.assertRaises(ValueError, bz2f.writable)
 
     def testOpenDel(self):
+        if platform.python_implementation() != "CPython":
+            self.skipTest("Test depends on CPython refcounting semantics")
         self.createTempFile()
         for i in range(10000):
             o = BZ2File(self.filename)
