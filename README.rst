@@ -4,7 +4,8 @@ It contains a drop-in replacement for the file interface in the standard
 library's ``bz2`` module, including features from the latest development
 version of CPython that are not available in older releases.
 
-Bz2file is compatible with Python 2.6, 2.7, and 3.0 through 3.4.
+Bz2file is compatible with CPython 2.6, 2.7, and 3.0 through 3.4, as well as
+PyPy 2.0.
 
 
 Features
