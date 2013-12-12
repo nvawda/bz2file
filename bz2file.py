@@ -211,7 +211,13 @@ class BZ2File(io.BufferedIOBase):
             except EOFError:
                 # Continue to next stream.
                 self._decompressor = BZ2Decompressor()
-                self._buffer = self._decompressor.decompress(rawblock)
+                try:
+                    self._buffer = self._decompressor.decompress(rawblock)
+                except IOError:
+                    # Trailing data isn't a valid bzip2 stream. We're done here.
+                    self._mode = _MODE_READ_EOF
+                    self._size = self._pos
+                    return False
             self._buffer_offset = 0
         return True
 
