@@ -41,6 +41,12 @@ the current development version of CPython, `documented here
 Version History
 ---------------
 
+0.98: 19 January 2014
+
+- Added support for the 'x' family of modes.
+- Ignore non-bz2 data at the end of a file, rather than raising an exception.
+- Tests now pass on PyPy.
+
 0.95: 08 October 2012
 
 - Added the ``open()`` function.
