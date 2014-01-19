@@ -608,49 +608,74 @@ class OpenTest(BaseTest):
         return bz2file.open(*args, **kwargs)
 
     def test_binary_modes(self):
-        with self.open(self.filename, "wb") as f:
-            f.write(self.TEXT)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read())
-            self.assertEqual(file_data, self.TEXT)
-        with self.open(self.filename, "rb") as f:
-            self.assertEqual(f.read(), self.TEXT)
-        with self.open(self.filename, "ab") as f:
-            f.write(self.TEXT)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read())
-            self.assertEqual(file_data, self.TEXT * 2)
+        modes = ["wb", "xb"] if bz2file._HAS_OPEN_X_MODE else ["wb"]
+        for mode in modes:
+            if mode == "xb":
+                support.unlink(self.filename)
+            with self.open(self.filename, mode) as f:
+                f.write(self.TEXT)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read())
+                self.assertEqual(file_data, self.TEXT)
+            with self.open(self.filename, "rb") as f:
+                self.assertEqual(f.read(), self.TEXT)
+            with self.open(self.filename, "ab") as f:
+                f.write(self.TEXT)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read())
+                self.assertEqual(file_data, self.TEXT * 2)
 
     def test_implicit_binary_modes(self):
         # Test implicit binary modes (no "b" or "t" in mode string).
-        with self.open(self.filename, "w") as f:
-            f.write(self.TEXT)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read())
-            self.assertEqual(file_data, self.TEXT)
-        with self.open(self.filename, "r") as f:
-            self.assertEqual(f.read(), self.TEXT)
-        with self.open(self.filename, "a") as f:
-            f.write(self.TEXT)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read())
-            self.assertEqual(file_data, self.TEXT * 2)
+        modes = ["w", "x"] if bz2file._HAS_OPEN_X_MODE else ["w"]
+        for mode in modes:
+            if mode == "x":
+                support.unlink(self.filename)
+            with self.open(self.filename, mode) as f:
+                f.write(self.TEXT)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read())
+                self.assertEqual(file_data, self.TEXT)
+            with self.open(self.filename, "r") as f:
+                self.assertEqual(f.read(), self.TEXT)
+            with self.open(self.filename, "a") as f:
+                f.write(self.TEXT)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read())
+                self.assertEqual(file_data, self.TEXT * 2)
 
     def test_text_modes(self):
         text = self.TEXT.decode("ascii")
         text_native_eol = text.replace("\n", os.linesep)
-        with self.open(self.filename, "wt") as f:
-            f.write(text)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read()).decode("ascii")
-            self.assertEqual(file_data, text_native_eol)
-        with self.open(self.filename, "rt") as f:
-            self.assertEqual(f.read(), text)
-        with self.open(self.filename, "at") as f:
-            f.write(text)
-        with open(self.filename, "rb") as f:
-            file_data = self.decompress(f.read()).decode("ascii")
-            self.assertEqual(file_data, text_native_eol * 2)
+        modes = ["wt", "xt"] if bz2file._HAS_OPEN_X_MODE else ["wt"]
+        for mode in modes:
+            if mode == "xt":
+                support.unlink(self.filename)
+                if not bz2file._HAS_OPEN_X_MODE:
+                    continue
+            with self.open(self.filename, mode) as f:
+                f.write(text)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read()).decode("ascii")
+                self.assertEqual(file_data, text_native_eol)
+            with self.open(self.filename, "rt") as f:
+                self.assertEqual(f.read(), text)
+            with self.open(self.filename, "at") as f:
+                f.write(text)
+            with open(self.filename, "rb") as f:
+                file_data = self.decompress(f.read()).decode("ascii")
+                self.assertEqual(file_data, text_native_eol * 2)
+
+    def test_x_mode(self):
+        if not bz2file._HAS_OPEN_X_MODE:
+            return
+        for mode in ("x", "xb", "xt"):
+            support.unlink(self.filename)
+            with self.open(self.filename, mode) as f:
+                pass
+            with self.assertRaises(FileExistsError):
+                with self.open(self.filename, mode) as f:
+                    pass
 
     def test_fileobj(self):
         with self.open(BytesIO(self.DATA), "r") as f:
@@ -665,6 +690,8 @@ class OpenTest(BaseTest):
         # Test invalid parameter combinations.
         self.assertRaises(ValueError,
                           self.open, self.filename, "wbt")
+        self.assertRaises(ValueError,
+                          self.open, self.filename, "xbt")
         self.assertRaises(ValueError,
                           self.open, self.filename, "rb", encoding="utf-8")
         self.assertRaises(ValueError,
