@@ -1,3 +1,7 @@
+.. image:: http://unmaintained.tech/badge.svg
+  :target: http://unmaintained.tech
+  :alt: No Maintenance Intended
+
 Bz2file is a Python library for reading and writing bzip2-compressed files.
 
 It contains a drop-in replacement for the file interface in the standard
